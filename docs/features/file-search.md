@@ -3,7 +3,7 @@
 Search Files is an on-demand palette screen for opening files and folders from the folders the user
 configures. It searches filenames through Spotlight, adds no private index or launch work, and is
 reached from the built-in Search Files launcher command — or its own global shortcut — after the
-feature is enabled in Settings.
+feature is enabled in Settings. An opt-in setting seats the same hits in the root search as well.
 
 ## Invariants
 
@@ -20,6 +20,9 @@ feature is enabled in Settings.
   Spotlight query over the configured scopes, read from the system's own `kMDItemLastUsedDate` and
   `kMDItemFSContentChangeDate`, never from anything Tinycast recorded. The type filter narrows *which*
   files Spotlight is asked for; it never adds a second pass over the ones it returned.
+- **The root search only runs for a nonempty query.** An empty root query draws no `Files` section —
+  the blank screen's recents stay the File Search screen's — and the root asks Spotlight only after
+  `fileSearchInRootSearch` is turned on.
 - **The filter belongs to the query, not to the rows.** `FileSearchSession` keys its de-dup and its
   supersession check on the query and the filter together, so narrowing re-runs the same words rather
   than thinning a result set that was already capped at 200.
@@ -32,9 +35,13 @@ feature is enabled in Settings.
 - **The shipped ignore rules are compiled in and never persisted.** `fileSearchIgnorePatterns` stores
   only what the user added, so changing `FileSearchIgnoreList.defaults` reaches installs that already
   ran. The consequence is that the shipped six cannot be switched off.
-- **File Search is off by default, and off means no entry point or Spotlight work.** A nonempty query
-  on that screen is the first operation that searches, and the global shortcut no-ops while the
-  feature switch is off.
+- **File Search is off by default, and off means no entry point or Spotlight work.** `fileSearchInRootSearch`
+  is a second, also-off switch on top of it. A nonempty query on that screen is the first operation
+  that searches, and the global shortcut no-ops while the feature switch is off.
+- **The root's `Files` section is the same session, not a second one.** `FileSearchSession` serves the
+  dedicated screen and the launcher alike, so the 120 ms debounce, the candidate cap and the revision
+  check cover root queries unchanged. Leaving the launcher for another screen cancels it, while
+  stepping into the dedicated File Search screen keeps it.
 - **Tinycast asks for no file permission.** Hidden metadata items and application bundles are filtered,
   and Spotlight or TCC omissions produce a thinner result set rather than a prompt for Full Disk Access.
 - **A superseded query never publishes.** The session cancels its pending task and checks cancellation
@@ -170,9 +177,14 @@ click opens, both through `onRowClick`, which answers on the press: `.onTapGestu
 single tap wait out the system's double-click interval first, and that wait *is* the second a click used
 to take before the preview moved.
 
-Fitted row icons use a separate 8 MB transient cache. Leaving the list or hiding the palette purges it
-and invalidates in-flight decodes, so scrolling stays warm within one result set without retaining its
-icons after File Search closes. Persistent launcher icons remain in their own cache.
+With `fileSearchInRootSearch` on, the launcher draws the same rows in a `Files` section between the
+ranked results and the `Use “…” with…` fallbacks, and they enter the launcher's flat selection there.
+Return, ⌘Return, ⌘K and the row itself behave exactly as they do on the File Search screen.
+
+Fitted row icons use a separate 8 MB transient cache. Leaving the dedicated screen, or hiding the
+palette from either surface, purges it and invalidates in-flight decodes, so scrolling stays warm
+within one result set without retaining its icons after File Search closes. Persistent launcher icons
+remain in their own cache.
 
 The preview pane is the file itself over an Information block — Name, Where, Type, Size, Created,
 Modified. The stage is **16:9 and sized before the block beneath it**, which then scrolls in whatever is
@@ -256,9 +268,11 @@ cleared whenever the palette hides.
 ## Invocation
 
 Settings ▸ File Search owns the `fileSearchEnabled` switch, which is off when its preference is absent,
-along with the scope list, the ignore patterns and the Search Files command row. All of them are
-ordinary settings carried by Tinycast settings backups; importing them grants no permission or
-background access.
+along with the scope list, the ignore patterns and the Search Files command row. `fileSearchInRootSearch`
+sits directly beneath it and is off by default too: while it is on and the palette is in the launcher, a
+nonempty query drives the same session, and turning either it or the feature switch off clears the
+section. All of them are ordinary settings carried by Tinycast settings backups; importing them grants
+no permission or background access.
 
 `AppCore` observes the switch and asks `FileSearchCoordinator` to project `CommandID.searchFiles` into
 the launcher; a second observation rebuilds the policy when either list changes. The coordinator also
