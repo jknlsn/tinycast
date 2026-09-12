@@ -469,6 +469,11 @@ caches, TCC grants and login item, so this cannot disturb an installed copy.
 - With File Search **off**: Search Files is absent, its shortcut no-ops, and no permission appears
 - Enabling in Settings exposes Search Files immediately; it persists across relaunch and backup import
 - Disabling during a query cancels it and returns the open screen to the launcher
+- With Always include Files in Root Search **off**, a typed root-search query shows no Files section
+- Switching it on seats one between the ranked results and the fallbacks; it is inert while File
+  Search itself is off, and it survives relaunch and backup import
+- Root rows act as they do on the File Search screen — Return opens, Command-Return reveals,
+  Command-K opens the same menu — and an empty query still runs no Spotlight work
 - File Search and Quicklinks remain independently visible in all four enabled/disabled combinations
 - An empty query performs no search; a filename query returns only files and folders beneath the scopes
 - Library internals, generated trees, application bundles and hidden paths do not appear

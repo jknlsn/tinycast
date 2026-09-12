@@ -46,6 +46,11 @@ struct RootPaletteView: View {
     /// Compact vs. full; the source of truth is on `AppCore`, so the two can't disagree.
     private var isCollapsed: Bool { core.paletteCoordinator.paletteIsCollapsed }
 
+    /// Whether the root's `Files` section is live: an opt-in on top of the feature switch.
+    private var filesInRootSearch: Bool {
+        vm.mode == .launcher && settings.fileSearchEnabled && settings.fileSearchInRootSearch
+    }
+
     /// The current mode's screen: its rows are the visible order the flat selection indexes.
     private var screen: any PaletteScreen {
         switch vm.mode {
@@ -54,6 +59,7 @@ struct RootPaletteView: View {
                 appIndex: appIndex, favorites: favorites, visibility: visibility,
                 currencyRates: currencyRates, core: core, vm: vm, running: selectionIsRunning,
                 meeting: core.calendarCoordinator.cardedMeeting, now: meetingClock.now,
+                files: filesInRootSearch ? fileSearch.results : nil,
                 openActions: openActions, openArgumentOptions: openArgumentOptions,
                 scrollToFollow: { scroll = ScrollIntent(kind: .follow) })
         case .uninstall:
@@ -375,7 +381,7 @@ struct RootPaletteView: View {
             .onChange(of: vm.query) {
                 if vm.collapseQueryLineBreaks() { return }
                 land()
-                if vm.mode == .fileSearch { fileSearch.search(vm.query, filter: vm.fileSearchFilter) }
+                syncFileSearch()
                 if vm.mode == .dictionary { dictionary.lookUp(vm.query) }
                 if vm.mode == .menuSearch { menuSearch.filter(vm.query) }
                 if vm.mode == .switchWindows { windowSwitch.filter(vm.query) }
@@ -395,7 +401,7 @@ struct RootPaletteView: View {
             // The filter is part of the query, so narrowing re-runs it rather than thinning rows.
             .onChange(of: vm.fileSearchFilter) {
                 land()
-                fileSearch.search(vm.query, filter: vm.fileSearchFilter)
+                syncFileSearch()
             }
             .onChange(of: vm.mode) {
                 vm.clipboardFilter = .all
@@ -408,12 +414,7 @@ struct RootPaletteView: View {
                 searchFocused = !screen.hidesSearchField
                 // Every way out of the Uninstall screen: back chevron, bare backspace, a fresh summon.
                 if vm.mode != .uninstall { uninstall.cancel() }
-                // Entering with no query is the blank screen's own request for recents.
-                if vm.mode == .fileSearch {
-                    fileSearch.search(vm.query, filter: vm.fileSearchFilter)
-                } else {
-                    fileSearch.cancel()
-                }
+                syncFileSearch()
                 if vm.mode == .dictionary {
                     dictionary.lookUp(vm.query)
                 } else {
@@ -427,6 +428,16 @@ struct RootPaletteView: View {
                 if vm.mode != .extensionCommand, extensions.running != nil, !extensions.isAuthorizing {
                     Task { await extensions.stop() }
                 }
+            }
+            // Files publish late and land above the fallbacks, so their highlight moves with them.
+            .onChange(of: fileSearch.results) { previous, current in
+                guard filesInRootSearch, let launcher = screen as? LauncherScreen else { return }
+                let delta = current.count - previous.count
+                guard delta != 0, launcher.fallbackCount > 0,
+                    vm.selection >= launcher.rows.count - delta - launcher.fallbackCount
+                else { return }
+                vm.selection += delta
+                scroll = ScrollIntent(kind: .follow)
             }
             // `prepare` may change nothing else, so this still lands the list as freshly opened.
             .onChange(of: vm.resetToken) {
@@ -461,6 +472,16 @@ struct RootPaletteView: View {
             .onChange(of: core.paletteCoordinator.paletteIsCollapsed) {
                 core.paletteCoordinator.syncPaletteSize()
             }
+    }
+
+    /// One rule for the session: the File Search screen always, the root only for a typed query.
+    private func syncFileSearch() {
+        let isTyped = !vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if vm.mode == .fileSearch || (filesInRootSearch && isTyped) {
+            fileSearch.search(vm.query, filter: vm.fileSearchFilter)
+        } else {
+            fileSearch.cancel()
+        }
     }
 
     /// Split from `body`: one chain of this length is past what the type-checker will infer.

@@ -12,6 +12,11 @@ struct FileSearchSettingsView: View {
                         anchor: .fileSearchFileSearch, title: "Enable File Search",
                         subtitle: "Uses the Spotlight index, only when you search.")
                 }
+                Toggle(isOn: $settings.fileSearchInRootSearch) {
+                    SettingsRowTitle(.fileSearchFileSearch, "Always include Files in Root Search")
+                    Text("Show matching files in the main search, below its results.")
+                }
+                .settingsEnabled(settings.fileSearchEnabled)
             }
             .settingsAnchor(.fileSearchFileSearch)
 

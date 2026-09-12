@@ -99,6 +99,11 @@ final class PaletteCoordinator {
         onScreenOpening?(palette.mode)
         windowController.show()
         if palette.mode == .fileSearch { fileSearch.search(palette.query) }
+        if palette.mode == .launcher, settings.fileSearchEnabled, settings.fileSearchInRootSearch,
+            !palette.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        {
+            fileSearch.search(palette.query)
+        }
         if palette.mode == .menuSearch { menuSearch.filter(palette.query) }
         if palette.mode == .switchWindows { windowSwitch.filter(palette.query) }
         // Re-scan on open so an app uninstalled since the last scan drops out of the launcher.

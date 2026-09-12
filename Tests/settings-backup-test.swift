@@ -47,6 +47,9 @@ struct SettingsBackupTest {
             "fileSearchEnabled rides the settings backup",
             mirrored["fileSearchEnabled"] == .fileSearchEnabled)
         check(
+            "root-search file inclusion rides the settings backup",
+            mirrored["fileSearchInRootSearch"] == .fileSearchInRootSearch)
+        check(
             "file search scopes ride the settings backup",
             mirrored["fileSearchScopes"] == .fileSearchScopes)
         check(

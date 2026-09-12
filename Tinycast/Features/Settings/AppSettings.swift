@@ -294,6 +294,13 @@ final class AppSettings {
         didSet { defaults.set(fileSearchEnabled, forKey: Key.fileSearchEnabled.rawValue) }
     }
 
+    /// Off by default, so the root search never asks Spotlight anything until it is turned on.
+    var fileSearchInRootSearch: Bool {
+        didSet {
+            defaults.set(fileSearchInRootSearch, forKey: Key.fileSearchInRootSearch.rawValue)
+        }
+    }
+
     /// Tilde-abbreviated, so a backup taken on one machine still points somewhere on another.
     var fileSearchScopes: [String] {
         didSet { defaults.set(fileSearchScopes, forKey: Key.fileSearchScopes.rawValue) }
@@ -649,6 +656,7 @@ final class AppSettings {
         paletteExpandedCenterDisplays =
             Set(defaults.stringArray(forKey: Key.paletteExpandedCenterDisplays.rawValue) ?? [])
         fileSearchEnabled = defaults.bool(forKey: Key.fileSearchEnabled.rawValue)
+        fileSearchInRootSearch = defaults.bool(forKey: Key.fileSearchInRootSearch.rawValue)
         // Unset seeds home; a stored empty array is a cleared list that searches nothing.
         fileSearchScopes =
             defaults.stringArray(forKey: Key.fileSearchScopes.rawValue)
