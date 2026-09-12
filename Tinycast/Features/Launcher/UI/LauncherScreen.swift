@@ -12,6 +12,8 @@ struct LauncherScreen: PaletteScreen {
     /// The join card's meeting, resolved by the coordinator; nil unless one is due.
     let meeting: MeetingEvent?
     let now: Date
+    /// The root's File Search hits; nil when the setting is off, empty when it has none yet.
+    let files: [FileSearchResult]?
     let openActions: () -> Void
     /// Opens the palette's own menu for an `options=` field, keyed by argument name.
     let openArgumentOptions: (String) -> Void
@@ -39,7 +41,7 @@ struct LauncherScreen: PaletteScreen {
     init(
         appIndex: AppIndex, favorites: FavoritesStore, visibility: VisibilityStore,
         currencyRates: CurrencyRateStore, core: AppCore, vm: PaletteState, running: Bool,
-        meeting: MeetingEvent?, now: Date,
+        meeting: MeetingEvent?, now: Date, files: [FileSearchResult]?,
         openActions: @escaping () -> Void, openArgumentOptions: @escaping (String) -> Void,
         scrollToFollow: @escaping () -> Void
     ) {
@@ -75,11 +77,15 @@ struct LauncherScreen: PaletteScreen {
         // After the calculator: `#FF5733` is never arithmetic, so the two can't both answer.
         let color = calc == nil && pinned == nil ? ColorValue.parse(vm.query) : nil
         let fallbacks = core.fallbackCoordinator.entries(for: vm.query)
-        let entries = results.map(Row.entry) + fallbacks.map { Row.fallback($0.fallback, $0.entry) }
+        let entries =
+            results.map(Row.entry)
+            + (files ?? []).map(Row.file)
+            + fallbacks.map { Row.fallback($0.fallback, $0.entry) }
         let pinsFavorites = vm.query.trimmingCharacters(in: .whitespaces).isEmpty
         // At most one of them leads, so the flat index keeps a single-row offset.
         let meeting = pinsFavorites ? meeting : nil
         self.meeting = meeting
+        self.files = files
         self.results = results
         self.calc = calc
         self.fallbacks = fallbacks
@@ -105,6 +111,8 @@ struct LauncherScreen: PaletteScreen {
         case meeting(MeetingEvent)
         case color(ColorValue)
         case entry(AppEntry)
+        /// A root-search file hit, drawn by File Search's own row.
+        case file(FileSearchResult)
         /// Prefixed, because the same command can also be a ranked hit above its own fallback row.
         case fallback(Fallback, AppEntry)
 
@@ -114,10 +122,14 @@ struct LauncherScreen: PaletteScreen {
             case .meeting: return "meeting-card"
             case .color: return "color-card"
             case .entry(let app): return app.id
+            case .file(let result): return "file-" + result.id
             case .fallback(let fallback, _): return "fallback-" + fallback.id
             }
         }
     }
+
+    /// The trailing `Use "…" with` rows, which move when a Files publication lands above them.
+    var fallbackCount: Int { fallbacks.count }
 
     /// The pill carries no selection, so the screen applies the clamp the palette applies.
     private var clampedSelection: Int {
@@ -132,6 +144,7 @@ struct LauncherScreen: PaletteScreen {
         case .meeting(let meeting):
             return meeting.link == nil ? "Open in Calendar" : "Join Meeting"
         case .entry(let app): return app.kind.descriptor.openVerb
+        case .file(let result): return result.isDirectory ? "Open Folder" : "Open File"
         case .fallback(let fallback, _): return fallback.openVerb
         case nil: return "Open Application"
         }
@@ -203,7 +216,7 @@ struct LauncherScreen: PaletteScreen {
     private func isCardSelected(_ selection: Int) -> Bool {
         switch row(at: selection) {
         case .calc, .meeting, .color: return true
-        case .entry, .fallback, nil: return false
+        case .entry, .fallback, .file, nil: return false
         }
     }
 
@@ -238,6 +251,9 @@ struct LauncherScreen: PaletteScreen {
                     if let index = rows.firstIndex(of: .entry(app)) { vm.selection = index }
                 },
                 onHideFromSearch: { _ = hideFromSearch(at: selection) })
+        case .file(let result):
+            return FileSearchActionsMenu.content(
+                result: result, core: core, vm: vm, target: vm.pasteTarget)
         case .fallback(let fallback, let app):
             return FallbackActionsMenu.content(
                 fallback: fallback, entry: app, query: vm.query, core: core)
@@ -256,6 +272,7 @@ struct LauncherScreen: PaletteScreen {
         case .entry(let app):
             core.launcherCoordinator.launch(
                 app, searchQuery: vm.query, arguments: argumentValues(for: app))
+        case .file(let result): core.fileSearchCoordinator.open(result)
         case .fallback(let fallback, _):
             core.fallbackCoordinator.run(fallback, query: vm.query)
         case nil: break
@@ -264,6 +281,10 @@ struct LauncherScreen: PaletteScreen {
 
     /// ⌘↵ — only an entry backed by a file on disk has somewhere to be revealed.
     func secondary(at selection: Int) -> Bool {
+        if case .file(let result) = row(at: selection) {
+            core.fileSearchCoordinator.showInFinder(result)
+            return true
+        }
         guard let app = entry(at: selection), app.canRevealInFinder else { return false }
         core.launcherCoordinator.showInFinder(app)
         return true
@@ -439,7 +460,16 @@ struct LauncherScreen: PaletteScreen {
                 openActions()
             },
             onDropped: { core.paletteCoordinator.dragLanded() },
-            fallbacks: fallbackSection
+            fallbacks: fallbackSection,
+            files: files.map { hits in
+                LauncherList.FileSection(
+                    results: hits,
+                    onActivate: { core.fileSearchCoordinator.open($0) },
+                    onActions: { result in
+                        if let index = rows.firstIndex(of: .file(result)) { vm.selection = index }
+                        openActions()
+                    })
+            }
         )
     }
 

@@ -284,6 +284,10 @@ A **fallback** is the other half of the query-driven idea: a command the query i
 offered under a `Use “…” with…` header **below every result**, whatever the query says. A contextual
 row leads because it recognised the query; a fallback trails because nothing did.
 
+One section can sit between the two: with `fileSearchInRootSearch` on, the launcher's typed query
+drives the same debounced Spotlight session the File Search screen uses, and its hits draw under a
+`Files` header after the ranked results and before the fallbacks.
+
 `Fallback` (`Launcher/Model/`) is the whole vocabulary — `.builtin(Builtin)` for the four shipped
 destinations and `.quicklink(UUID)` for a user's own. `Builtin` exists rather than a bare `CommandID`
 so `FallbackCoordinator.run` is **exhaustive**: a fifth built-in cannot compile without saying where

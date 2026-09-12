@@ -333,6 +333,9 @@ enum SettingsSearchCatalog {
             .fileSearchFileSearch, "Enable File Search",
             keywords: ["spotlight", "index"]),
         .init(
+            .fileSearchFileSearch, "Always include Files in Root Search",
+            keywords: ["root", "main search", "launcher", "inline"]),
+        .init(
             group: .fileSearchCommands, "File search commands",
             keywords: ["shortcut", "launcher"]),
         .init(
