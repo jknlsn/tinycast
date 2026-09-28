@@ -600,15 +600,14 @@ final class AppIndex {
     ) -> ([AppEntry], BundleNameCache, SettingsPaneScanner.Cache?) {
         Signposts.interval("AppIndex.scan") {
             var cache = cache
-            var indexByBundleID: [String: Int] = [:]
+            var seenInstalls: Set<String> = []
             var result: [AppEntry] = []
             for url in SearchScopes.appBundles(in: scopes) {
                 let bundle = Bundle(url: url)
                 let bundleID = bundle?.bundleIdentifier
                 let fileName = EntryNaming.strippingAppExtension(url.lastPathComponent)
-                // Dedup by bundle id; the first scope wins, but a renamed copy lends its name.
-                if let bundleID, let first = indexByBundleID[bundleID] {
-                    result[first].addAlternateTitle(fileName)
+                // Same bundle and name merge; Xcode-beta is a different install, not a copy.
+                if let bundleID, !seenInstalls.insert("\(bundleID)/\(fileName)").inserted {
                     continue
                 }
 
@@ -626,7 +625,6 @@ final class AppIndex {
                     installedAt: try? url.resourceValues(forKeys: [.addedToDirectoryDateKey])
                         .addedToDirectoryDate)
                 entry.addAlternateTitle(fileName)
-                if let bundleID { indexByBundleID[bundleID] = result.count }
                 result.append(entry)
             }
             // Slice order is section order, so the flat selection maps 1:1 onto rows.
