@@ -1,7 +1,7 @@
 # App launcher & root search
 
-`AppIndex.scan()` runs off-main, enumerates the user's search scopes, and dedups by bundle ID (the
-earliest scope wins).
+`AppIndex.scan()` runs off-main, enumerates the user's search scopes, and merges copies by bundle ID
+and on-disk name (the earliest scope wins).
 
 ## Invariants
 
@@ -226,8 +226,8 @@ from its own Info.plist.
 
 A renamed bundle is the other half. A Finder rename never touches `CFBundleDisplayName`, so the
 on-disk basename is indexed as an alternate title — rename `Slack.app` to `Work Chat.app` and both find
-it. Duplicate copies dedupe by bundle id, and the losing copy lends its file name to the winner
-rather than being dropped whole.
+it. Copies merge only when bundle id and on-disk name both match, the earliest scope winning; a renamed
+copy stays its own entry, which is what keeps `Xcode` and `Xcode-beta` separately launchable.
 
 ### Subtitles
 
