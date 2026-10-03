@@ -6,6 +6,7 @@ final class PaletteCoordinator {
     private let palette: PaletteState
     private let settings: AppSettings
     private let appIndex: AppIndex
+    private let runningApps: RunningAppsMonitor
     private let fileSearch: FileSearchSession
     private let menuSearch: MenuSearchSession
     private let windowSwitch: WindowSwitchSession
@@ -19,6 +20,7 @@ final class PaletteCoordinator {
         palette: PaletteState,
         settings: AppSettings,
         appIndex: AppIndex,
+        runningApps: RunningAppsMonitor,
         fileSearch: FileSearchSession,
         menuSearch: MenuSearchSession,
         windowSwitch: WindowSwitchSession,
@@ -27,6 +29,7 @@ final class PaletteCoordinator {
         self.palette = palette
         self.settings = settings
         self.appIndex = appIndex
+        self.runningApps = runningApps
         self.fileSearch = fileSearch
         self.menuSearch = menuSearch
         self.windowSwitch = windowSwitch
@@ -109,6 +112,7 @@ final class PaletteCoordinator {
         // Re-scan on open so an app uninstalled since the last scan drops out of the launcher.
         if palette.mode == .launcher {
             Task { await appIndex.refresh() }
+            runningApps.refresh()
             onLauncherShown?()
         }
     }

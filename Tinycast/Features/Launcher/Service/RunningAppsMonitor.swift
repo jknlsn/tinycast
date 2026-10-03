@@ -15,7 +15,15 @@ final class RunningAppsMonitor {
             NSWorkspace.didTerminateApplicationNotification
         ] {
             let token = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.refresh() }
+                MainActor.assumeIsolated {
+                    self?.refresh()
+                    guard name == NSWorkspace.didTerminateApplicationNotification else { return }
+                    // A dying app can still sit in the snapshot this notification arrives with.
+                    Task { @MainActor [weak self] in
+                        try? await Task.sleep(for: .milliseconds(500))
+                        self?.refresh()
+                    }
+                }
             }
             observers.append(NotificationToken(token, center: center))
         }
@@ -27,9 +35,12 @@ final class RunningAppsMonitor {
         return runningBundleIDs.contains(bundleID)
     }
 
-    /// Helpers and agents fire these too, so republish only on a real change.
-    private func refresh() {
-        let next = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
+    /// Re-reads the live set; the palette also calls this on open, so a missed event can't stick.
+    func refresh() {
+        let next = Set(
+            NSWorkspace.shared.runningApplications.filter { !$0.isTerminated }
+                .compactMap(\.bundleIdentifier))
+        // Helpers and agents fire these too, so republish only on a real change.
         guard next != runningBundleIDs else { return }
         runningBundleIDs = next
     }

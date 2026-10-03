@@ -758,8 +758,8 @@ not drag.
 
 ## Quitting and restarting apps
 
-`RunningAppsMonitor` (live from `NSWorkspace` launch/terminate notifications) drives both the row's
-running dot and the availability of the running-only actions:
+`RunningAppsMonitor` (live from `NSWorkspace` launch/terminate notifications, re-read when the
+launcher opens) drives both the row's running dot and the availability of the running-only actions:
 
 - **Quit Application** — a row of an app's ⌘K Actions menu, shown only while that app is
   running, also bound to **⌃⇧Q** on the selected row. The chord guard mirrors the menu row's
