@@ -19,9 +19,9 @@ final class RunningAppsMonitor {
         app.kind == .application && app.bundleID != nil && runningAppPaths.contains(app.id)
     }
 
-    /// Helpers and agents fire these too, so republish only on a real change.
-    private func refresh() {
-        let apps = NSWorkspace.shared.runningApplications
+    /// Re-reads the live set; the palette also calls this on open, so a missed event can't stick.
+    func refresh() {
+        let apps = NSWorkspace.shared.runningApplications.filter { !$0.isTerminated }
         let bundleIDs = Set(apps.compactMap(\.bundleIdentifier))
         let paths = Set(apps.compactMap { $0.bundleURL?.resolvingSymlinksInPath().standardizedFileURL.path })
         if bundleIDs != runningBundleIDs { runningBundleIDs = bundleIDs }
